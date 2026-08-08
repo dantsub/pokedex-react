@@ -49,7 +49,7 @@ Then open the local URL printed by Vite in the terminal.
 | `bun run lint`          | Lint the codebase with Oxlint                    |
 | `bun run lint:fix`      | Lint and automatically fix issues with Oxlint    |
 | `bun run format`        | Format `src/` files with Prettier                |
-| `bun run typecheck`     | Run a TypeScript type check without emitting     |
+| `bun run typecheck`     | Type-check all project references (`tsc -b`)      |
 
 ## Project Structure
 
@@ -61,6 +61,7 @@ src/
 │   ├── mappers/   # Map raw API responses to domain models
 │   └── repositories/ # API/data repositories
 ├── domain/       # Domain models and business types
+│   ├── contracts/ # Repository and use-case contracts
 │   └── models/
 ├── services/     # Application services
 ├── ui/           # UI components

@@ -5,6 +5,7 @@ The domain layer contains the application's Pokémon concepts and rules. It shou
 ## Responsibilities
 
 - Define domain data contracts in `models/dto/`.
+- Own the repository/use-case contracts (such as `IPokemonRepository`) in `contracts/` so data implementations depend on the domain.
 - Wrap raw Pokémon data in `PokemonEntity` and expose behavior used by the application.
 - Keep reusable, deterministic conversions in `models/helpers/`.
 - Keep shared closed sets such as languages and Pokémon types in `models/types/`.
