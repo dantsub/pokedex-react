@@ -1,5 +1,5 @@
 export const pikachuSpeciesApiResponse = {
-  evolution_chain: { url: 'https://pokeapi.co/api/v2/evolution-chain/10/' },
+  evolution_chain: { name: 'pikachu', url: 'https://pokeapi.co/api/v2/evolution-chain/10/' },
   flavor_text_entries: [
     {
       flavor_text:

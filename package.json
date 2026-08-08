@@ -13,7 +13,7 @@
     "lint:fix": "oxlint --fix",
     "preview": "vite preview",
     "format": "prettier --write \"src/**/*.{ts,tsx,css}\"",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc -b"
   },
   "dependencies": {
     "react": "^19.2.7",

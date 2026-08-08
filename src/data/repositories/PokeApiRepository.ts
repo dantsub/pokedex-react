@@ -49,11 +49,6 @@ export class PokeApiRepository implements IPokemonRepository {
     return toPokemonListResponse(list, offset, limit, items);
   }
 
-  async getEvolutionChain(pokeId: number): Promise<unknown> {
-    const species = await this.fetchWithGuard<RawSpecies>(`pokemon-species/${pokeId}`, pokeId);
-    return this.resolveEvolutionChain(species);
-  }
-
   clearCache(): void {
     this.cache.clear();
   }

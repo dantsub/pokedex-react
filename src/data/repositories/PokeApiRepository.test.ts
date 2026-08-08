@@ -1,12 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ApiServerError, NetworkError } from '@/data/errors';
 import { PokemonNotFoundError } from '@/domain/errors';
-import {
-  toEvolutionChain,
-  toPokemon,
-  toPokemonListItem,
-  toPokemonListResponse,
-} from '@/data/mappers';
+import { toEvolutionChain, toPokemon, toPokemonListItem, toPokemonListResponse } from '@/data/mappers';
+import type { RawPokemon } from '@/data/mappers';
 import { PokeApiRepository } from './PokeApiRepository';
 import { pikachuApiResponse } from '@/tests/fixtures/pokeApi/pikachu.pokemon';
 import { pikachuSpeciesApiResponse } from '@/tests/fixtures/pokeApi/pikachu.species';
@@ -15,18 +11,46 @@ import { pokemonListApiResponse } from '@/tests/fixtures/pokeApi/pokemonList';
 
 const POKEAPI_BASE_URL = 'https://pokeapi.co/api/v2';
 
-const bulbasaurApiResponse = {
+const bulbasaurApiResponse: RawPokemon = {
   id: 1,
   name: 'bulbasaur',
+  height: 7,
+  weight: 69,
+  sprites: {
+    front_default: null,
+    back_default: null,
+    front_shiny: null,
+    back_shiny: null,
+    front_female: null,
+    back_female: null,
+    front_shiny_female: null,
+    back_shiny_female: null,
+  },
+  stats: [],
+  abilities: [],
   types: [
     { slot: 1, type: { name: 'grass', url: 'https://pokeapi.co/api/v2/type/12/' } },
     { slot: 2, type: { name: 'poison', url: 'https://pokeapi.co/api/v2/type/4/' } },
   ],
 };
 
-const ivysaurApiResponse = {
+const ivysaurApiResponse: RawPokemon = {
   id: 2,
   name: 'ivysaur',
+  height: 10,
+  weight: 130,
+  sprites: {
+    front_default: null,
+    back_default: null,
+    front_shiny: null,
+    back_shiny: null,
+    front_female: null,
+    back_female: null,
+    front_shiny_female: null,
+    back_shiny_female: null,
+  },
+  stats: [],
+  abilities: [],
   types: [
     { slot: 1, type: { name: 'grass', url: 'https://pokeapi.co/api/v2/type/12/' } },
     { slot: 2, type: { name: 'poison', url: 'https://pokeapi.co/api/v2/type/4/' } },
@@ -199,27 +223,6 @@ describe('PokeApiRepository', () => {
       expect(result.items[0].spriteUrl).toBe(
         'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/1.png'
       );
-    });
-  });
-
-  describe('getEvolutionChain', () => {
-    it('resolves the species to its evolution chain and maps it', async () => {
-      mockFetch([
-        [/\/pokemon-species\/25$/, pikachuSpeciesApiResponse],
-        [/\/evolution-chain\/10$/, pikachuEvolutionChainApiResponse],
-      ]);
-
-      const result = await repo.getEvolutionChain(25);
-
-      expect(fetchMock).toHaveBeenCalledWith(
-        `${POKEAPI_BASE_URL}/pokemon-species/25`,
-        expect.anything()
-      );
-      expect(fetchMock).toHaveBeenCalledWith(
-        `${POKEAPI_BASE_URL}/evolution-chain/10`,
-        expect.anything()
-      );
-      expect(result).toEqual(toEvolutionChain(pikachuEvolutionChainApiResponse));
     });
   });
 
