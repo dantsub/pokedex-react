@@ -1,35 +1,9 @@
 import { describe, expect, it, vi } from 'vitest';
 import { PokemonService } from './PokemonService';
 import type { IPokemonRepository } from '@/domain/contracts';
-import { PokemonBuilder, PokemonEntity } from '@/domain/models';
-import type { IPokemon, IPokemonListResponse } from '@/domain/models';
-
-const sprites = {
-  frontDefault: null,
-  backDefault: null,
-  frontShiny: null,
-  backShiny: null,
-  frontFemale: null,
-  backFemale: null,
-  frontShinyFemale: null,
-  backShinyFemale: null,
-};
-
-function buildPikachu(): IPokemon {
-  return new PokemonBuilder()
-    .withId(25)
-    .withName('pikachu')
-    .withTypes(['electric'])
-    .withHeight(4)
-    .withWeight(60)
-    .withDescriptions([])
-    .withStats({ hp: 35, attack: 55, defense: 40, speed: 90, specialAttack: 50, specialDefense: 50 })
-    .withAbilities([])
-    .withCategories([])
-    .withSprites(sprites)
-    .withEvolutionChain(undefined)
-    .build();
-}
+import { PokemonEntity } from '@/domain/models';
+import type { IPokemonListResponse } from '@/domain/models';
+import { buildPikachu } from '@/tests/fixtures/pikachu';
 
 function buildListResponse(): IPokemonListResponse {
   return {
@@ -63,7 +37,7 @@ describe('PokemonService', () => {
 
     const entity = await service.getPokemonById(25);
 
-    expect(repo.getPokemonById).toHaveBeenCalledWith(25);
+    expect(repo.getPokemonById).toHaveBeenCalledWith(25, undefined);
     expect(entity).toBeInstanceOf(PokemonEntity);
     expect(entity.getName()).toBe('Pikachu');
   });
@@ -75,7 +49,7 @@ describe('PokemonService', () => {
 
     const entity = await service.getPokemonByName('pikachu');
 
-    expect(repo.getPokemonByName).toHaveBeenCalledWith('pikachu');
+    expect(repo.getPokemonByName).toHaveBeenCalledWith('pikachu', undefined);
     expect(entity.getName()).toBe('Pikachu');
   });
 
@@ -87,7 +61,25 @@ describe('PokemonService', () => {
 
     const result = await service.getPokemonList(0, 20);
 
-    expect(repo.getPokemonList).toHaveBeenCalledWith(0, 20);
+    expect(repo.getPokemonList).toHaveBeenCalledWith(0, 20, undefined);
     expect(result).toEqual(list);
   });
+
+  it('forwards the abort signal to the repository methods', async () => {
+    const controller = new AbortController();
+    const { service, repo } = buildService({
+      getPokemonById: vi.fn().mockResolvedValue(buildPikachu()),
+      getPokemonByName: vi.fn().mockResolvedValue(buildPikachu()),
+      getPokemonList: vi.fn().mockResolvedValue(buildListResponse()),
+    });
+
+    await service.getPokemonById(25, controller.signal);
+    await service.getPokemonByName('pikachu', controller.signal);
+    await service.getPokemonList(0, 20, controller.signal);
+
+    expect(repo.getPokemonById).toHaveBeenCalledWith(25, controller.signal);
+    expect(repo.getPokemonByName).toHaveBeenCalledWith('pikachu', controller.signal);
+    expect(repo.getPokemonList).toHaveBeenCalledWith(0, 20, controller.signal);
+  });
 });
+

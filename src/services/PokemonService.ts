@@ -9,15 +9,19 @@ export class PokemonService {
     this.repository = repository;
   }
 
-  async getPokemonById(id: number): Promise<PokemonEntity> {
-    return new PokemonEntity(await this.repository.getPokemonById(id));
+  async getPokemonById(id: number, signal?: AbortSignal): Promise<PokemonEntity> {
+    return new PokemonEntity(await this.repository.getPokemonById(id, signal));
   }
 
-  async getPokemonByName(name: string): Promise<PokemonEntity> {
-    return new PokemonEntity(await this.repository.getPokemonByName(name));
+  async getPokemonByName(name: string, signal?: AbortSignal): Promise<PokemonEntity> {
+    return new PokemonEntity(await this.repository.getPokemonByName(name, signal));
   }
 
-  async getPokemonList(offset: number, limit: number): Promise<IPokemonListResponse> {
-    return this.repository.getPokemonList(offset, limit);
+  async getPokemonList(
+    offset: number,
+    limit: number,
+    signal?: AbortSignal
+  ): Promise<IPokemonListResponse> {
+    return this.repository.getPokemonList(offset, limit, signal);
   }
 }
