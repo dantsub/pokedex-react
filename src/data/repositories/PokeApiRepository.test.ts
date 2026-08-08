@@ -1,10 +1,37 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ApiServerError, NetworkError } from '@/data/errors';
 import { PokemonNotFoundError } from '@/domain/errors';
+import {
+  toEvolutionChain,
+  toPokemon,
+  toPokemonListItem,
+  toPokemonListResponse,
+} from '@/data/mappers';
 import { PokeApiRepository } from './PokeApiRepository';
 import { pikachuApiResponse } from '@/tests/fixtures/pokeApi/pikachu.pokemon';
+import { pikachuSpeciesApiResponse } from '@/tests/fixtures/pokeApi/pikachu.species';
 import { pikachuEvolutionChainApiResponse } from '@/tests/fixtures/pokeApi/pikachu.evolutionChain';
 import { pokemonListApiResponse } from '@/tests/fixtures/pokeApi/pokemonList';
+
+const POKEAPI_BASE_URL = 'https://pokeapi.co/api/v2';
+
+const bulbasaurApiResponse = {
+  id: 1,
+  name: 'bulbasaur',
+  types: [
+    { slot: 1, type: { name: 'grass', url: 'https://pokeapi.co/api/v2/type/12/' } },
+    { slot: 2, type: { name: 'poison', url: 'https://pokeapi.co/api/v2/type/4/' } },
+  ],
+};
+
+const ivysaurApiResponse = {
+  id: 2,
+  name: 'ivysaur',
+  types: [
+    { slot: 1, type: { name: 'grass', url: 'https://pokeapi.co/api/v2/type/12/' } },
+    { slot: 2, type: { name: 'poison', url: 'https://pokeapi.co/api/v2/type/4/' } },
+  ],
+};
 
 function stubResponse(data: unknown, status = 200): Response {
   return {
@@ -13,8 +40,6 @@ function stubResponse(data: unknown, status = 200): Response {
     json: async () => data,
   } as unknown as Response;
 }
-
-const POKEAPI_BASE_URL = 'https://pokeapi.co/api/v2';
 
 describe('PokeApiRepository', () => {
   const fetchMock = vi.fn();
@@ -48,13 +73,37 @@ describe('PokeApiRepository', () => {
     });
   }
 
+  function mockPikachuGraph() {
+    mockFetch([
+      [/\/pokemon\/25$/, pikachuApiResponse],
+      [/\/pokemon-species\/25$/, pikachuSpeciesApiResponse],
+      [/\/evolution-chain\/10$/, pikachuEvolutionChainApiResponse],
+    ]);
+  }
+
   describe('getPokemonById', () => {
-    it('fetches the pokemon/{id} endpoint', async () => {
-      mockFetch([[/\/pokemon\/25$/, pikachuApiResponse]]);
+    it('fetches pokemon, species and evolution chain, and maps to IPokemon', async () => {
+      mockPikachuGraph();
+
       const result = await repo.getPokemonById(25);
 
+      expect(fetchMock).toHaveBeenCalledTimes(3);
       expect(fetchMock).toHaveBeenCalledWith(`${POKEAPI_BASE_URL}/pokemon/25`, expect.anything());
-      expect(result).toEqual(pikachuApiResponse);
+      expect(fetchMock).toHaveBeenCalledWith(
+        `${POKEAPI_BASE_URL}/pokemon-species/25`,
+        expect.anything()
+      );
+      expect(fetchMock).toHaveBeenCalledWith(
+        `${POKEAPI_BASE_URL}/evolution-chain/10`,
+        expect.anything()
+      );
+      expect(result).toEqual(
+        toPokemon(
+          pikachuApiResponse,
+          pikachuSpeciesApiResponse,
+          toEvolutionChain(pikachuEvolutionChainApiResponse)
+        )
+      );
     });
 
     it('throws PokemonNotFoundError on a 404', async () => {
@@ -104,18 +153,36 @@ describe('PokeApiRepository', () => {
   });
 
   describe('getPokemonByName', () => {
-    it('fetches the pokemon/{name} endpoint', async () => {
-      mockFetch([[/\/pokemon\/pikachu$/, pikachuApiResponse]]);
+    it('resolves the pokemon by name and maps it', async () => {
+      mockFetch([
+        [/\/pokemon\/pikachu$/, pikachuApiResponse],
+        [/\/pokemon-species\/25$/, pikachuSpeciesApiResponse],
+        [/\/evolution-chain\/10$/, pikachuEvolutionChainApiResponse],
+      ]);
 
-      await repo.getPokemonByName('pikachu');
+      const result = await repo.getPokemonByName('pikachu');
 
-      expect(fetchMock).toHaveBeenCalledWith(`${POKEAPI_BASE_URL}/pokemon/pikachu`, expect.anything());
+      expect(fetchMock).toHaveBeenCalledWith(
+        `${POKEAPI_BASE_URL}/pokemon/pikachu`,
+        expect.anything()
+      );
+      expect(result).toEqual(
+        toPokemon(
+          pikachuApiResponse,
+          pikachuSpeciesApiResponse,
+          toEvolutionChain(pikachuEvolutionChainApiResponse)
+        )
+      );
     });
   });
 
   describe('getPokemonList', () => {
-    it('fetches the list with offset and limit query params', async () => {
-      mockFetch([[/offset=0&limit=20/, pokemonListApiResponse]]);
+    it('fetches the list and each item detail, then maps the response', async () => {
+      mockFetch([
+        [/offset=0&limit=20/, pokemonListApiResponse],
+        [/\/pokemon\/1$/, bulbasaurApiResponse],
+        [/\/pokemon\/2$/, ivysaurApiResponse],
+      ]);
 
       const result = await repo.getPokemonList(0, 20);
 
@@ -123,42 +190,57 @@ describe('PokeApiRepository', () => {
         `${POKEAPI_BASE_URL}/pokemon?offset=0&limit=20`,
         expect.anything()
       );
-      expect(result).toEqual(pokemonListApiResponse);
+      const items = [
+        toPokemonListItem(pokemonListApiResponse.results[0], bulbasaurApiResponse),
+        toPokemonListItem(pokemonListApiResponse.results[1], ivysaurApiResponse),
+      ];
+      expect(result).toEqual(toPokemonListResponse(pokemonListApiResponse, 0, 20, items));
+      expect(result.items[0].types).toEqual(['grass', 'poison']);
+      expect(result.items[0].spriteUrl).toBe(
+        'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/1.png'
+      );
     });
   });
 
   describe('getEvolutionChain', () => {
-    it('fetches the evolution-chain/{id} endpoint', async () => {
-      mockFetch([[/\/evolution-chain\/10/, pikachuEvolutionChainApiResponse]]);
+    it('resolves the species to its evolution chain and maps it', async () => {
+      mockFetch([
+        [/\/pokemon-species\/25$/, pikachuSpeciesApiResponse],
+        [/\/evolution-chain\/10$/, pikachuEvolutionChainApiResponse],
+      ]);
 
-      const result = await repo.getEvolutionChain(10);
+      const result = await repo.getEvolutionChain(25);
 
+      expect(fetchMock).toHaveBeenCalledWith(
+        `${POKEAPI_BASE_URL}/pokemon-species/25`,
+        expect.anything()
+      );
       expect(fetchMock).toHaveBeenCalledWith(
         `${POKEAPI_BASE_URL}/evolution-chain/10`,
         expect.anything()
       );
-      expect(result).toEqual(pikachuEvolutionChainApiResponse);
+      expect(result).toEqual(toEvolutionChain(pikachuEvolutionChainApiResponse));
     });
   });
 
   describe('cache', () => {
-    it('returns the cached response for the same URL', async () => {
-      mockFetch([[/\/pokemon\/25/, pikachuApiResponse]]);
+    it('reuses cached responses across the full request graph', async () => {
+      mockPikachuGraph();
 
       await repo.getPokemonById(25);
       await repo.getPokemonById(25);
 
-      expect(fetchMock).toHaveBeenCalledTimes(1);
+      expect(fetchMock).toHaveBeenCalledTimes(3);
     });
 
     it('re-fetches after clearCache', async () => {
-      mockFetch([[/\/pokemon\/25/, pikachuApiResponse]]);
+      mockPikachuGraph();
 
       await repo.getPokemonById(25);
       repo.clearCache();
       await repo.getPokemonById(25);
 
-      expect(fetchMock).toHaveBeenCalledTimes(2);
+      expect(fetchMock).toHaveBeenCalledTimes(6);
     });
   });
 });
