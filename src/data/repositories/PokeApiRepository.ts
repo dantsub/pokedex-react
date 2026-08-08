@@ -24,23 +24,29 @@ export class PokeApiRepository implements IPokemonRepository {
     this.timeout = timeout;
   }
 
-  async getPokemonById(id: number): Promise<IPokemon> {
-    return this.fetchPokemon(id);
+  async getPokemonById(id: number, signal?: AbortSignal): Promise<IPokemon> {
+    return this.fetchPokemon(id, signal);
   }
 
-  async getPokemonByName(name: string): Promise<IPokemon> {
-    return this.fetchPokemon(name);
+  async getPokemonByName(name: string, signal?: AbortSignal): Promise<IPokemon> {
+    return this.fetchPokemon(name, signal);
   }
 
-  async getPokemonList(offset: number, limit: number): Promise<IPokemonListResponse> {
+  async getPokemonList(
+    offset: number,
+    limit: number,
+    signal?: AbortSignal
+  ): Promise<IPokemonListResponse> {
     const list = await this.fetchWithCache<RawPokemonList>(
-      `pokemon?offset=${offset}&limit=${limit}`
+      `pokemon?offset=${offset}&limit=${limit}`,
+      signal
     );
 
     const items = await Promise.all(
       list.results.map(async result => {
         const pokemon = await this.fetchWithCache<RawPokemon>(
-          `pokemon/${extractIdFromResourceUrl(result.url)}`
+          `pokemon/${extractIdFromResourceUrl(result.url)}`,
+          signal
         );
         return toPokemonListItem(result, pokemon);
       })
@@ -53,33 +59,42 @@ export class PokeApiRepository implements IPokemonRepository {
     this.cache.clear();
   }
 
-  private async fetchPokemon(identity: number | string): Promise<IPokemon> {
-    const pokemon = await this.fetchWithGuard<RawPokemon>(`pokemon/${identity}`, identity);
+  private async fetchPokemon(identity: number | string, signal?: AbortSignal): Promise<IPokemon> {
+    const pokemon = await this.fetchWithGuard<RawPokemon>(`pokemon/${identity}`, identity, signal);
     const species = await this.fetchWithGuard<RawSpecies>(
       `pokemon-species/${pokemon.id}`,
-      identity
+      identity,
+      signal
     );
-    const evolutionChain = await this.resolveEvolutionChain(species);
+    const evolutionChain = await this.resolveEvolutionChain(species, signal);
 
     return toPokemon(pokemon, species, evolutionChain);
   }
 
   private async resolveEvolutionChain(
-    species: RawSpecies
+    species: RawSpecies,
+    signal?: AbortSignal
   ): Promise<IEvolutionNode[] | undefined> {
     if (!species.evolution_chain?.url) {
       return undefined;
     }
 
     const chainId = extractIdFromResourceUrl(species.evolution_chain.url);
-    const chain = await this.fetchWithCache<RawEvolutionChain>(`evolution-chain/${chainId}`);
+    const chain = await this.fetchWithCache<RawEvolutionChain>(
+      `evolution-chain/${chainId}`,
+      signal
+    );
 
     return toEvolutionChain(chain);
   }
 
-  private async fetchWithGuard<T>(url: string, identifier: number | string): Promise<T> {
+  private async fetchWithGuard<T>(
+    url: string,
+    identifier: number | string,
+    signal?: AbortSignal
+  ): Promise<T> {
     try {
-      return await this.fetchWithCache<T>(url);
+      return await this.fetchWithCache<T>(url, signal);
     } catch (error) {
       if (error instanceof ApiServerError && error.statusCode === 404) {
         throw new PokemonNotFoundError(identifier);
@@ -88,7 +103,7 @@ export class PokeApiRepository implements IPokemonRepository {
     }
   }
 
-  private async fetchWithCache<T>(url: string): Promise<T> {
+  private async fetchWithCache<T>(url: string, signal?: AbortSignal): Promise<T> {
     if (this.cache.has(url)) {
       return this.cache.get(url) as T;
     }
@@ -97,7 +112,7 @@ export class PokeApiRepository implements IPokemonRepository {
 
     for (let attempt = 1; attempt <= MAX_RETRIES; ++attempt) {
       try {
-        const response = await this.fetchWithTimeout(`${POKEAPI_BASE_URL}/${url}`);
+        const response = await this.fetchWithTimeout(`${POKEAPI_BASE_URL}/${url}`, signal);
         if (!response.ok) {
           throw new ApiServerError(response.status);
         }
@@ -105,6 +120,9 @@ export class PokeApiRepository implements IPokemonRepository {
         this.cache.set(url, data);
         return data;
       } catch (error) {
+        if (signal?.aborted) {
+          throw error;
+        }
         if (error instanceof ApiServerError) {
           throw error;
         }
@@ -115,15 +133,23 @@ export class PokeApiRepository implements IPokemonRepository {
     throw lastError ?? new NetworkError();
   }
 
-  private async fetchWithTimeout(url: string): Promise<Response> {
+  private async fetchWithTimeout(url: string, signal?: AbortSignal): Promise<Response> {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), this.timeout);
+
+    const onExternalAbort = () => controller.abort();
+    signal?.addEventListener('abort', onExternalAbort, { once: true });
+
     try {
       return await fetch(url, { signal: controller.signal });
     } catch (error) {
+      if (signal?.aborted) {
+        throw error;
+      }
       throw new NetworkError(error);
     } finally {
       clearTimeout(timeoutId);
+      signal?.removeEventListener('abort', onExternalAbort);
     }
   }
 }

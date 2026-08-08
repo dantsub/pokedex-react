@@ -64,6 +64,8 @@ src/
 │   ├── contracts/ # Repository and use-case contracts
 │   └── models/
 ├── services/     # Application services
+├── tests/        # Test setup and shared fixtures
+│   └── fixtures/ # Raw PokeAPI responses and domain test data
 ├── ui/           # UI components
 └── utils/        # Shared utility functions
 ```
