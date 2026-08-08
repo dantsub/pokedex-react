@@ -53,7 +53,7 @@ sequenceDiagram
 - Keep React state, event handlers, and rendering in the UI/app layers.
 - Do not make domain code depend on browser globals or network clients.
 - Prefer importing the domain public API from `src/domain/models/index.ts` outside the domain models directory.
-- Own repository and use-case contracts in `src/domain/contracts/` so data implementations depend on the domain, not the other way around.
+- Own repository and use-case contracts in `src/domain/contracts/` so data implementations depend on the domain, not the other way around. Define domain-neutral abstractions for cross-cutting concerns (e.g. `CancellationSignal`) instead of leaking transport/browser types (e.g. `AbortSignal`) into contract signatures.
 - Add tests at the layer that owns the behavior: pure tests for helpers, entity tests for domain behavior, and integration tests for data/service workflows.
 
 ## Adding a Feature

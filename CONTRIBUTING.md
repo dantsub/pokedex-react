@@ -41,7 +41,7 @@ Follow the boundaries described in [`docs/architecture.md`](docs/architecture.md
 
 ## Tests
 
-Use the existing test style and keep tests close to the code they cover. Domain tests should use `PokemonBuilder` rather than repeating large object literals. Tests should be deterministic and should not require a live PokéAPI request.
+Use the existing test style and keep tests close to the code they cover. Domain tests should use `PokemonBuilder` rather than repeating large object literals. Reuse shared fixtures from `src/tests/fixtures/` — raw PokeAPI responses in `fixtures/pokeApi/`, builder-based domain data such as `buildPikachu` in the top-level fixtures — before writing a new one. Tests should be deterministic and should not require a live PokéAPI request.
 
 When a change affects a public domain behavior, include tests for the normal case and relevant missing or unsupported data cases.
 
